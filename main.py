@@ -1,13 +1,12 @@
 import telebot
-import mysql.connector
+
 from telebot import types
 from datetime import datetime
-
+from db_manager import DbManager
 bot = telebot.TeleBot(token="7914862502:AAG990qgbJswkWJ5iuKD5GKH412Erbropio")
-db = mysql.connector.connect(
-    host="localhost", user="root", password="0000", database="oila3"
-)
-cursor = db.cursor()
+
+
+db = DbManager()
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -56,23 +55,22 @@ def handle_savdo(message):
     bot.send_message(message.chat.id, "Bugungi savdoni kiriting:")
     bot.register_next_step_handler(message, save_savdo)
 
-def save_savdo(message):
-    try:
-        savdo = float(message.text)  # Kirish qiymatini float formatiga o'tkazamiz
-        selected_date = datetime.today().date()  # Bugungi sanani olish
-        cursor.execute("SELECT * FROM savdolar WHERE sana = %s AND chat_id = %s", (selected_date, message.chat.id))
-        existing_savdo = cursor.fetchall()
-        
-        if existing_savdo:
-            cursor.execute("UPDATE savdolar SET summa = %s WHERE sana = %s AND chat_id = %s", (savdo, selected_date, message.chat.id))
-            db.commit()
-            bot.send_message(message.chat.id, f"{selected_date} sanasi uchun savdo yangilandi: {savdo} so'm.")
-        else:
-            cursor.execute("INSERT INTO savdolar (sana, summa, chat_id) VALUES (%s, %s, %s)", (selected_date, savdo, message.chat.id))
-            db.commit()
-            bot.send_message(message.chat.id, f" savdo saqlandi: {savdo} so'm.")
-    except ValueError:
-        bot.send_message(message.chat.id, "Iltimos, faqat raqamli qiymat kiriting!")
+# def save_savdo(message):
+#     try:
+#         savdo = float(message.text)  # Kirish qiymatini float formatiga o'tkazamiz
+#         selected_date = datetime.today().date()  # Bugungi sanani olish
+#         existing_savdo = db.savdo_select(selected_date, message.chat.id)
+
+#         if existing_savdo:
+#             cursor.execute("UPDATE savdolar SET summa = %s WHERE sana = %s AND chat_id = %s", (savdo, selected_date, message.chat.id))
+#             db.commit()
+#             bot.send_message(message.chat.id, f"{selected_date} sanasi uchun savdo yangilandi: {savdo} so'm.")
+#         else:
+#             cursor.execute("INSERT INTO savdolar (sana, summa, chat_id) VALUES (%s, %s, %s)", (selected_date, savdo, message.chat.id))
+#             db.commit()
+#             bot.send_message(message.chat.id, f" savdo saqlandi: {savdo} so'm.")
+#     except ValueError:
+#         bot.send_message(message.chat.id, "Iltimos, faqat raqamli qiymat kiriting!")
 
 @bot.message_handler(func=lambda message: message.text == "🛍 Harajatlar")
 def handle_harajat(message):
@@ -84,21 +82,23 @@ def save_harajat_name(message):
     bot.send_message(message.chat.id, f"{harajat_name} ning summasini kiriting:")
     bot.register_next_step_handler(message, save_harajat_summa, harajat_name)
 
-def save_harajat_summa(message, harajat_name):
+def save_harajat_summa(message:types.Message, harajat_name):
     try:
         harajat_summa = float(message.text)  # Harajatni raqam sifatida olish
         selected_date = datetime.today().date()  # Bugungi sanani olish
-        cursor.execute("SELECT * FROM harajatlar WHERE sana = %s AND nom = %s AND chat_id = %s", (selected_date, harajat_name, message.chat.id))
-        existing_harajat = cursor.fetchall()
+        db.harajat_update(harajat_name, harajat_summa, selected_date, message.from_user.id)
+        # cursor.execute("SELECT * FROM harajatlar WHERE sana = %s AND nom = %s AND chat_id = %s", (selected_date, harajat_name, message.chat.id))
+        # existing_harajat = cursor.fetchall()
 
-        if existing_harajat:
-            cursor.execute("UPDATE harajatlar SET summa = %s WHERE sana = %s AND nom = %s AND chat_id = %s", (harajat_summa, selected_date, harajat_name, message.chat.id))
-            db.commit()
-            bot.send_message(message.chat.id, f"{harajat_name} ning summasi yangilandi: {harajat_summa} so'm.")
-        else:
-            cursor.execute("INSERT INTO harajatlar (sana, nom, summa, chat_id) VALUES (%s, %s, %s, %s)", (selected_date, harajat_name, harajat_summa, message.chat.id))
-            db.commit()
-            bot.send_message(message.chat.id, f"{harajat_name} ning summasi saqlandi: {harajat_summa} so'm.")
+        # if existing_harajat:
+        #     cursor.execute("UPDATE harajatlar SET summa = %s WHERE sana = %s AND nom = %s AND chat_id = %s", (harajat_summa, selected_date, harajat_name, message.chat.id))
+        #     db.commit()
+        #     bot.send_message(message.chat.id, f"{harajat_name} ning summasi yangilandi: {harajat_summa} so'm.")
+        # else:
+        #     cursor.execute("INSERT INTO harajatlar (sana, nom, summa, chat_id) VALUES (%s, %s, %s, %s)", (selected_date, harajat_name, harajat_summa, message.chat.id))
+        #     db.commit()
+        #     bot.send_message(message.chat.id, f"{harajat_name} ning summasi saqlandi: {harajat_summa} so'm.")
+        bot.send_message(message.chat.id, f"{harajat_name} ning summasi kiritildi: {harajat_summa} so'm.")
     except ValueError:
         bot.send_message(message.chat.id, "Iltimos, faqat raqamli qiymat kiriting!")
 
@@ -158,19 +158,19 @@ def update_savdo(message, selected_date):
 def handle_harajat_savdo(message):
     # Sana tanlash
     selected_date = datetime.today().date()
-    cursor.execute("SELECT * FROM savdolar WHERE sana = %s AND chat_id = %s", (selected_date, message.chat.id))  
-    savdo_rows = cursor.fetchall()
-    cursor.execute("SELECT * FROM harajatlar WHERE sana = %s AND chat_id = %s", (selected_date, message.chat.id))  
-    harajat_rows = cursor.fetchall()
+    # cursor.execute("SELECT * FROM savdolar WHERE sana = %s AND chat_id = %s", (selected_date, message.chat.id))  
+    # savdo_rows = cursor.fetchall()
+    
+    harajat_rows = db.harajat_by_sana(selected_date, message.from_user.id)
 
     savdo_message = "Savdolar:\n"
     harajat_message = "Harajatlar:\n"
 
-    if savdo_rows:
-        for row in savdo_rows:
-            savdo_message += f"Savdo summa: {row[2]} so'm\n" 
-    else:
-        savdo_message += "Hech qanday savdo yo'q.\n"
+    # if savdo_rows:
+    #     for row in savdo_rows:
+    #         savdo_message += f"Savdo summa: {row[2]} so'm\n" 
+    # else:
+    #     savdo_message += "Hech qanday savdo yo'q.\n"
 
     if harajat_rows:
         for row in harajat_rows:
