@@ -156,28 +156,27 @@ def update_savdo(message, selected_date):
 
 @bot.message_handler(func=lambda message: message.text == "💰 Harajat va Savdo")
 def handle_harajat_savdo(message):
-    # Sana tanlash
-    selected_date = datetime.today().date()
-    # cursor.execute("SELECT * FROM savdolar WHERE sana = %s AND chat_id = %s", (selected_date, message.chat.id))  
-    # savdo_rows = cursor.fetchall()
-    
-    harajat_rows = db.harajat_by_sana(selected_date, message.from_user.id)
+    markup = types.InlineKeyboardMarkup()
+    for i in range(5):
+        date = (datetime.today().date()).strftime("%Y-%m-%d")
+        btn = types.InlineKeyboardButton(text=date, callback_data=f"date_{date}")
+        markup.add(btn)
+    bot.send_message(message.chat.id, "📅 Iltimos, sanani tanlang:", reply_markup=markup)
 
-    savdo_message = "Savdolar:\n"
+@bot.callback_query_handler(func=lambda call: call.data.startswith("date_"))
+def show_savdo_harajat(call):
+    selected_date = call.data.split("_")[1]
+    harajat_rows = db.harajat_by_sana(selected_date, call.from_user.id)
+
+    savdo_message = f"📅 Sana: {selected_date}\nSavdolar:\n"
     harajat_message = "Harajatlar:\n"
-
-    # if savdo_rows:
-    #     for row in savdo_rows:
-    #         savdo_message += f"Savdo summa: {row[2]} so'm\n" 
-    # else:
-    #     savdo_message += "Hech qanday savdo yo'q.\n"
 
     if harajat_rows:
         for row in harajat_rows:
-            harajat_message += f"Harajat nomi: {row[3]}, Harajat summa: {row[2]} so'm\n" 
+            harajat_message += f"{row[3]} - {row[2]} so'm\n"
     else:
         harajat_message += "Hech qanday harajat yo'q.\n"
 
-    bot.send_message(message.chat.id, savdo_message + harajat_message)
+    bot.send_message(call.message.chat.id, savdo_message + harajat_message)
 
 bot.polling(none_stop=True)
