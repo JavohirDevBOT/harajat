@@ -37,13 +37,14 @@ class DbManager:
         harajat_rows = self.cursor.fetchall()
         return harajat_rows
     
-    def harajat_sanasi(self):
-        sql = """select sana, sum(summa)
+    def harajat_sanasi(self, user_id):
+        sql = """select sana, sum(summa) 
                 from harajatlar
+                where chat_id = %s
                 group by sana
                 order by sana desc
                 limit 5"""
-        self.cursor.execute(sql)
+        self.cursor.execute(sql, (user_id,))
         return self.cursor.fetchall()
     
 

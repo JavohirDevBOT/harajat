@@ -4,6 +4,7 @@ from telebot import types
 from datetime import datetime
 from db_manager import DbManager
 import os
+from telebot.types import KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton,ReplyKeyboardMarkup
 
 load_dotenv()
 
@@ -159,28 +160,33 @@ def update_savdo(message, selected_date):
         bot.send_message(message.chat.id, "❌ Iltimos, faqat raqamli qiymat kiriting!")
 
 @bot.message_handler(func=lambda message: message.text == "💰 Harajat va Savdo")
-def handle_harajat_savdo(message):
+def handle_harajat_savdo(message:types.Message):
     markup = types.InlineKeyboardMarkup()
-    for i in range(5):
-        date = (datetime.today().date()).strftime("%Y-%m-%d")
-        btn = types.InlineKeyboardButton(text=date, callback_data=f"date_{date}")
-        markup.add(btn)
-    bot.send_message(message.chat.id, "📅 Iltimos, sanani tanlang:", reply_markup=markup)
+    rows = db.harajat_sanasi(message.from_user.id)
+    if rows:
+        for i,row in enumerate(rows):
+            
+            markup.add(InlineKeyboardButton(f"{row[0]} ({row[1]})", callback_data=f"date_{row[0]}")) 
+        bot.send_message(message.chat.id, "📅 Iltimos, sanani tanlang:", reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, "Sizda hali harajat mavjud emas")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("date_"))
 def show_savdo_harajat(call):
     selected_date = call.data.split("_")[1]
     harajat_rows = db.harajat_by_sana(selected_date, call.from_user.id)
 
-    savdo_message = f"📅 Sana: {selected_date}\nSavdolar:\n"
-    harajat_message = "Harajatlar:\n"
-
+    savdo_message = f"📅 <b>{selected_date}</b>"
+    harajat_message = ""
+    hammasi = 0
     if harajat_rows:
-        for row in harajat_rows:
-            harajat_message += f"{row[3]} - {row[2]} so'm\n"
+        for i, row in enumerate(harajat_rows, 1):
+            hammasi += row[2]
+            harajat_message += f"{i}. {row[3]} - {row[2]} so'm\n"
+        harajat_message = f"{savdo_message}\nHammasi: {hammasi}\n\n{harajat_message}"
     else:
         harajat_message += "Hech qanday harajat yo'q.\n"
-
-    bot.send_message(call.message.chat.id, savdo_message + harajat_message)
+    
+    bot.send_message(call.message.chat.id, harajat_message, parse_mode="HTML")
 
 bot.polling(none_stop=True)
