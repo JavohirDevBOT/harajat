@@ -1,9 +1,13 @@
 import telebot
-
+from dotenv import load_dotenv
 from telebot import types
 from datetime import datetime
 from db_manager import DbManager
-bot = telebot.TeleBot(token="7914862502:AAG990qgbJswkWJ5iuKD5GKH412Erbropio")
+import os
+
+load_dotenv()
+
+bot = telebot.TeleBot(token=os.getenv("BOT_TOKEN"))
 
 
 db = DbManager()
@@ -35,7 +39,7 @@ def back_to_main(message):
 
 @bot.message_handler(func=lambda message: message.text == "📅 Sana tanlash")
 def choose_date(message):
-    bot.send_message(message.chat.id, "Iltimos, sana kiriting (YY\YY-MM-DD formatida):")
+    bot.send_message(message.chat.id, "Iltimos, sana kiriting (YYYY-MM-DD formatida):")
     bot.register_next_step_handler(message, save_date)
 
 def save_date(message):
